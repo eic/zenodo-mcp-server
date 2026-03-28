@@ -1,0 +1,6 @@
+node_modules/
+build/
+*.js.map
+coverage/
+.c8_output/
+.nyc_output/
