@@ -9,6 +9,7 @@ on:
       - 'package*.json'
       - 'tsconfig.json'
       - 'Dockerfile'
+      - '.dockerignore'
       - '.github/workflows/docker.yml'
   pull_request:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'package*.json'
       - 'tsconfig.json'
       - 'Dockerfile'
+      - '.dockerignore'
   release:
     types: [published]
   workflow_dispatch:

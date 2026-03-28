@@ -4,7 +4,6 @@ services:
     image: ghcr.io/eic/zenodo-mcp-server:latest
     container_name: zenodo-mcp-server
     stdin_open: true
-    tty: true
     environment:
       ZENODO_BASE_URL: ${ZENODO_BASE_URL:-https://zenodo.org}
       ZENODO_API_KEY: ${ZENODO_API_KEY:-}
@@ -17,10 +16,4 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
-    healthcheck:
-      test: ["CMD", "node", "-e", "console.log('healthy')"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
     restart: unless-stopped
