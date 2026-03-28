@@ -7,6 +7,7 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'AGENTS.md'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -36,6 +37,7 @@ jobs:
         run: |
           mkdir -p _site
           cp -r docs/* _site/
+          cp AGENTS.md _site/
           touch _site/.nojekyll
           echo "Documentation site prepared with Docsify"
           ls -la _site/
