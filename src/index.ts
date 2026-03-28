@@ -334,7 +334,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             keywords: r.metadata.keywords,
             version: r.metadata.version,
             files_count: r.files?.length,
-            url: r.links.html,
+            url: r.links.self_html || r.links.html,
           })),
         };
 
@@ -518,7 +518,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     submitted: d.submitted,
                     created: d.created,
                     modified: d.modified,
-                    url: d.links.html,
+                    url: d.links.self_html || d.links.html,
                     publish_url: d.links.publish,
                   })),
                 },

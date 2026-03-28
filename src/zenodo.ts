@@ -49,7 +49,8 @@ export interface ZenodoRecord {
   metadata: ZenodoMetadata;
   links: {
     self: string;
-    html: string;
+    self_html?: string;
+    html?: string;
     files: string;
     badge?: string;
     conceptbadge?: string;
@@ -97,7 +98,8 @@ export interface ZenodoDeposition {
   title: string;
   links: {
     self: string;
-    html: string;
+    self_html?: string;
+    html?: string;
     badge: string;
     files: string;
     bucket: string;
