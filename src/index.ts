@@ -260,16 +260,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         zenodoClient.setApiKey(key);
         // Immediately verify the key
         const status = await zenodoClient.checkAuthStatus();
+        if (!status.authenticated) {
+          // Clear the invalid key so the server stays unauthenticated
+          zenodoClient.setApiKey(null);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    message: `API key verification failed: ${status.message}`,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify(
                 {
-                  success: status.authenticated,
-                  message: status.authenticated
-                    ? `API key accepted. ${status.message}`
-                    : `API key stored but verification failed: ${status.message}`,
+                  success: true,
+                  message: `API key accepted. ${status.message}`,
                 },
                 null,
                 2
@@ -418,10 +436,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'get_file_content': {
         const id = String(safeArgs.id || '').trim();
         const filename = String(safeArgs.filename || '').trim();
-        const maxBytes =
-          safeArgs.max_bytes !== undefined
-            ? Number(safeArgs.max_bytes)
-            : 1024 * 1024; // 1 MB default
+
+        let maxBytes: number;
+        if (safeArgs.max_bytes === undefined) {
+          maxBytes = 1024 * 1024; // 1 MB default
+        } else {
+          maxBytes = Number(safeArgs.max_bytes);
+          if (
+            !Number.isFinite(maxBytes) ||
+            !Number.isInteger(maxBytes) ||
+            maxBytes <= 0
+          ) {
+            throw new Error('max_bytes must be a positive integer');
+          }
+        }
 
         if (!id) throw new Error('id is required');
         if (!filename) throw new Error('filename is required');

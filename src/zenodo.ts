@@ -273,6 +273,14 @@ export class ZenodoClient {
     delete headers['Content-Type'];
 
     if (maxBytes !== undefined) {
+      if (
+        typeof maxBytes !== 'number' ||
+        !Number.isFinite(maxBytes) ||
+        !Number.isInteger(maxBytes) ||
+        maxBytes <= 0
+      ) {
+        throw new Error('maxBytes must be a finite positive integer');
+      }
       headers['Range'] = `bytes=0-${maxBytes - 1}`;
     }
 
@@ -284,9 +292,54 @@ export class ZenodoClient {
 
     const contentType =
       response.headers.get('content-type') || 'application/octet-stream';
-    const buffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const truncated = maxBytes !== undefined && bytes.length >= maxBytes;
+
+    // Stream the response body, stopping after maxBytes to reliably cap
+    // memory usage even when the server ignores the Range header.
+    const body = response.body;
+    if (!body) {
+      throw new Error('Failed to download file: missing response body');
+    }
+
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    const limit = maxBytes ?? Number.POSITIVE_INFINITY;
+    let truncated = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value || value.length === 0) {
+        continue;
+      }
+
+      if (received + value.length <= limit) {
+        chunks.push(value);
+        received += value.length;
+      } else {
+        const remaining = limit - received;
+        if (remaining > 0) {
+          chunks.push(value.subarray(0, remaining));
+          received += remaining;
+        }
+        truncated = maxBytes !== undefined;
+        await reader.cancel();
+        break;
+      }
+    }
+
+    const bytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    if (maxBytes !== undefined && received >= maxBytes) {
+      truncated = true;
+    }
 
     // Attempt UTF-8 text decode; fall back to base64 for binary files
     try {

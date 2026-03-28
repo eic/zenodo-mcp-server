@@ -295,6 +295,43 @@ describe('Zenodo MCP Server Integration Tests', () => {
   });
 
   describe('Error Handling', () => {
+    it('should return isError for invalid API key', async () => {
+      const result: { content: Array<{ type: string; text: string }>; isError?: boolean } =
+        await client.callTool({
+          name: 'set_api_key',
+          arguments: { api_key: 'invalid_token_that_will_fail_verification' },
+        }) as { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+      // In an offline environment the verification call itself fails, which
+      // is also an auth failure – either way isError must be true.
+      // If the network is available, a bad token returns a 401 → isError.
+      assert.ok(result.isError);
+      const parsed = JSON.parse(result.content[0].text);
+      assert.equal(parsed.success, false);
+    });
+
+    it('should reject zero or negative max_bytes for get_file_content', async () => {
+      const result: { content: Array<{ type: string; text: string }>; isError?: boolean } =
+        await client.callTool({
+          name: 'get_file_content',
+          arguments: { id: '1234567', filename: 'test.txt', max_bytes: 0 },
+        }) as { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+      assert.ok(result.isError);
+      assert.ok(result.content[0].text.includes('max_bytes'));
+    });
+
+    it('should reject non-integer max_bytes for get_file_content', async () => {
+      const result: { content: Array<{ type: string; text: string }>; isError?: boolean } =
+        await client.callTool({
+          name: 'get_file_content',
+          arguments: { id: '1234567', filename: 'test.txt', max_bytes: 1.5 },
+        }) as { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+      assert.ok(result.isError);
+      assert.ok(result.content[0].text.includes('max_bytes'));
+    });
+
     it('should require api_key parameter for set_api_key', async () => {
       try {
         await client.callTool({
