@@ -7,10 +7,13 @@ An MCP server that allows LLM agents to query and interact with [Zenodo](https:/
 - **Unauthenticated access** – search and inspect public records without an API key
 - **Session API key** – supply a personal access token at runtime via the `set_api_key` tool
 - **Persistent service account** – set `ZENODO_API_KEY` environment variable for a long-lived key
+- **Optional write access** – create, update, and publish depositions (enabled via `ZENODO_ALLOW_WRITE=true`)
 - Search records with full Elasticsearch query syntax, pagination, and filtering
+- Browse and filter Zenodo communities
 - Retrieve record metadata, files, and file content (text or binary)
-- List your own depositions (drafts and published, requires authentication)
+- List, create, update, publish, and version depositions (write tools require `ZENODO_ALLOW_WRITE=true`)
 - Configurable Zenodo base URL for sandbox or self-hosted instances
+- Optional default community filter via `ZENODO_COMMUNITY`
 
 ## Quick Start
 
@@ -74,15 +77,29 @@ node build/src/index.js
 
 ## Available Tools
 
-| Tool | Description | Auth required |
-|------|-------------|:-------------:|
-| `get_auth_status` | Check authentication status and get setup guidance | No |
-| `set_api_key` | Set a personal access token for the current session | No |
-| `search_records` | Search Zenodo records with Elasticsearch query syntax | No |
-| `get_record` | Get full metadata for a record by ID or DOI | No |
-| `list_record_files` | List files attached to a record | No |
-| `get_file_content` | Download file content (text or base64) | No |
-| `list_depositions` | List your own depositions (drafts + published) | **Yes** |
+| Tool | Description | Auth required | Write required |
+|------|-------------|:-------------:|:--------------:|
+| `get_auth_status` | Check authentication status and get setup guidance | No | No |
+| `set_api_key` | Set a personal access token for the current session | No | No |
+| `search_records` | Search Zenodo records with Elasticsearch query syntax | No | No |
+| `get_community` | Get details about a specific Zenodo community | No | No |
+| `list_communities` | Search or list Zenodo communities | No | No |
+| `get_record` | Get full metadata for a record by ID or DOI | No | No |
+| `list_record_files` | List files attached to a record | No | No |
+| `get_file_content` | Download file content (text or base64) | No | No |
+| `list_depositions` | List your own depositions (drafts + published) | **Yes** | No |
+| `create_deposition` | Create a new empty deposition (draft) | **Yes** | **Yes** |
+| `get_deposition` | Retrieve a single deposition by ID | **Yes** | **Yes** |
+| `update_deposition` | Update metadata of a draft deposition | **Yes** | **Yes** |
+| `delete_deposition` | Delete an unpublished draft deposition | **Yes** | **Yes** |
+| `upload_file` | Upload a file to a deposition | **Yes** | **Yes** |
+| `delete_deposition_file` | Delete a file from an unpublished deposition | **Yes** | **Yes** |
+| `publish_deposition` | Publish a deposition and register a DOI | **Yes** | **Yes** |
+| `edit_deposition` | Unlock a published deposition for metadata edits | **Yes** | **Yes** |
+| `discard_deposition` | Discard edits and revert to published state | **Yes** | **Yes** |
+| `new_version` | Create a new version of a published deposition | **Yes** | **Yes** |
+
+> Write tools are only available when `ZENODO_ALLOW_WRITE=true` is set. See [docs/TOOLS.md](docs/TOOLS.md) for full parameter details.
 
 ### `search_records`
 
@@ -135,6 +152,9 @@ Text files are returned as UTF-8 strings. Binary files are returned as base64. T
 |----------|---------|-------------|
 | `ZENODO_BASE_URL` | `https://zenodo.org` | Base URL of the Zenodo instance |
 | `ZENODO_API_KEY` | *(none)* | Personal access token for persistent authentication |
+| `ZENODO_ALLOW_WRITE` | *(unset)* | Set to `true` or `1` to enable write tools (depositions) |
+| `ZENODO_COMMUNITY` | *(none)* | Default community identifier applied to searches |
+| `ZENODO_MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Maximum file size for `upload_file` |
 
 ## MCP Client Configuration
 
