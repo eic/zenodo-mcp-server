@@ -18,7 +18,7 @@ const HAVE_KEY = TEST_API_KEY.length > 0;
 function skipIfNoKey(fn: () => Promise<void>): () => Promise<void> {
   return async () => {
     if (!HAVE_KEY) {
-      console.error('  ⊘ Skipping: ZENODO_API_KEY not set');
+      console.log('  ⊘ Skipping: ZENODO_API_KEY not set');
       return;
     }
     await fn();
@@ -75,7 +75,7 @@ describe('Zenodo MCP Server – Authenticated Access Tests', () => {
       assert.ok(result.content?.[0]);
       const text = result.content[0].text;
       if (result.isError || text.startsWith('Error:')) {
-        console.error('  ⊘ Skipping: Zenodo not reachable in this environment');
+        console.log('  ⊘ Skipping: Zenodo not reachable in this environment');
         return;
       }
       const data = JSON.parse(text);
@@ -92,7 +92,7 @@ describe('Zenodo MCP Server – Authenticated Access Tests', () => {
       assert.ok(result.content?.[0]);
       const text = result.content[0].text;
       if (result.isError || text.startsWith('Error:')) {
-        console.error('  ⊘ Skipping: Zenodo not reachable in this environment');
+        console.log('  ⊘ Skipping: Zenodo not reachable in this environment');
         return;
       }
       const data = JSON.parse(text);
@@ -108,7 +108,7 @@ describe('Zenodo MCP Server – Authenticated Access Tests', () => {
       assert.ok(result.content?.[0]);
       const text = result.content[0].text;
       if (result.isError || text.startsWith('Error:')) {
-        console.error('  ⊘ Skipping: Zenodo not reachable in this environment');
+        console.log('  ⊘ Skipping: Zenodo not reachable in this environment');
         return;
       }
       const data = JSON.parse(text);
@@ -124,7 +124,7 @@ describe('Zenodo MCP Server – Authenticated Access Tests', () => {
       assert.ok(result.content?.[0]);
       const text = result.content[0].text;
       if (result.isError || text.startsWith('Error:')) {
-        console.error('  ⊘ Skipping: Zenodo not reachable in this environment');
+        console.log('  ⊘ Skipping: Zenodo not reachable in this environment');
         return;
       }
       const data = JSON.parse(text);
