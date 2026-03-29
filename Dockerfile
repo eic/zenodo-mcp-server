@@ -26,9 +26,6 @@ RUN chown -R node:node /app
 
 USER node
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "console.log('healthy')" || exit 1
-
 ENV NODE_ENV=production \
     ZENODO_BASE_URL=https://zenodo.org
 

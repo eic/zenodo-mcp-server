@@ -18,8 +18,9 @@ const ZENODO_ALLOW_WRITE =
 /** Maximum inline upload size in bytes (default 50 MiB, configurable via ZENODO_MAX_UPLOAD_BYTES). */
 const ZENODO_MAX_UPLOAD_BYTES =
   parseInt(process.env.ZENODO_MAX_UPLOAD_BYTES || '', 10) || 50 * 1024 * 1024;
+const ZENODO_COMMUNITY = process.env.ZENODO_COMMUNITY || null;
 
-const zenodoClient = new ZenodoClient(ZENODO_BASE_URL, ZENODO_API_KEY);
+const zenodoClient = new ZenodoClient(ZENODO_BASE_URL, ZENODO_API_KEY, ZENODO_COMMUNITY);
 
 const server = new Server(
   {
@@ -40,6 +41,9 @@ console.error(
 );
 console.error(
   `Write access: ${ZENODO_ALLOW_WRITE ? 'ENABLED (ZENODO_ALLOW_WRITE=true)' : 'disabled (set ZENODO_ALLOW_WRITE=true to enable)'}`
+);
+console.error(
+  `Default community: ${ZENODO_COMMUNITY || 'none (all communities searched by default)'}`
 );
 
 const tools: Tool[] = [
@@ -100,7 +104,9 @@ const tools: Tool[] = [
         },
         communities: {
           type: 'string',
-          description: 'Filter by community identifier (e.g. "zenodo")',
+          description:
+            'Filter by community identifier (e.g. "zenodo"). ' +
+            'When omitted, the ZENODO_COMMUNITY default is applied if set.',
         },
         type: {
           type: 'string',
@@ -118,8 +124,57 @@ const tools: Tool[] = [
           description:
             'Include all versions of records (default: false, only latest versions)',
         },
+        bounds: {
+          type: 'string',
+          description:
+            'Geolocation bounding box filter. Format: "west,south,east,north" ' +
+            '(longitude/latitude in decimal degrees, e.g. "143.37,-38.99,146.90,-37.35")',
+        },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'get_community',
+    description:
+      'Get details about a specific Zenodo community by its identifier. ' +
+      'Returns the title, description, curation policy, and links.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The community identifier (e.g. "zenodo", "eic")',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'list_communities',
+    description:
+      'Search or list Zenodo communities. ' +
+      'Returns community identifiers, titles, and descriptions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Optional search query to filter communities by name or description',
+        },
+        page: {
+          type: 'number',
+          description: 'Page number for pagination (default: 1)',
+        },
+        size: {
+          type: 'number',
+          description: 'Number of results per page (default: 10, max: 100)',
+        },
+        sort: {
+          type: 'string',
+          description: 'Sort order: "bestmatch" or "mostrecent"',
+        },
+      },
     },
   },
   {
@@ -449,6 +504,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   authenticated: status.authenticated,
                   message: status.message,
                   user: status.user,
+                  default_community: status.default_community,
                   help: status.authenticated
                     ? undefined
                     : {
@@ -524,15 +580,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             : undefined,
           type: safeArgs.type ? String(safeArgs.type) : undefined,
           subtype: safeArgs.subtype ? String(safeArgs.subtype) : undefined,
-          allVersions: safeArgs.all_versions
-            ? Boolean(safeArgs.all_versions)
-            : undefined,
+          allVersions:
+            safeArgs.all_versions !== undefined &&
+            safeArgs.all_versions !== null
+              ? safeArgs.all_versions === true ||
+                String(safeArgs.all_versions).toLowerCase() === 'true'
+              : undefined,
+          bounds: safeArgs.bounds ? String(safeArgs.bounds) : undefined,
         });
 
         const simplified = {
           total: results.hits.total,
-          page: safeArgs.page || 1,
-          size: safeArgs.size || 10,
+          page: safeArgs.page !== undefined ? Number(safeArgs.page) : 1,
+          size: safeArgs.size !== undefined ? Number(safeArgs.size) : 10,
+          community: zenodoClient.getDefaultCommunity() ?? undefined,
           next: results.links.next,
           records: results.hits.hits.map((r) => ({
             id: r.id,
@@ -554,6 +615,58 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           })),
         };
 
+        return {
+          content: [{ type: 'text', text: JSON.stringify(simplified, null, 2) }],
+        };
+      }
+
+      case 'get_community': {
+        const id = String(safeArgs.id || '').trim();
+        if (!id) {
+          throw new Error('id is required');
+        }
+        const community = await zenodoClient.getCommunity(id);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  id: community.id,
+                  title: community.title,
+                  description: community.description,
+                  curation_policy: community.curation_policy,
+                  links: community.links,
+                  created: community.created,
+                  updated: community.updated,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'list_communities': {
+        const query = safeArgs.query ? String(safeArgs.query) : undefined;
+        const result = await zenodoClient.listCommunities(query, {
+          page: safeArgs.page !== undefined ? Number(safeArgs.page) : undefined,
+          size: safeArgs.size !== undefined ? Number(safeArgs.size) : undefined,
+          sort: safeArgs.sort ? String(safeArgs.sort) : undefined,
+        });
+        const simplified = {
+          total: result.hits.total,
+          next: result.links.next,
+          communities: result.hits.hits.map((c) => ({
+            id: c.id,
+            title: c.title,
+            description: c.description
+              ? c.description.slice(0, 200) + (c.description.length > 200 ? '...' : '')
+              : undefined,
+            links: c.links,
+          })),
+        };
         return {
           content: [{ type: 'text', text: JSON.stringify(simplified, null, 2) }],
         };
