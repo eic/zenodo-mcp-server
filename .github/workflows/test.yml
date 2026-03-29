@@ -45,6 +45,7 @@ jobs:
         timeout-minutes: 5
         env:
           ZENODO_BASE_URL: https://zenodo.org
+          ZENODO_API_KEY: ${{ secrets.ZENODO_API_KEY }}
 
       - name: Generate test summary
         if: always()
