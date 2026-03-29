@@ -139,7 +139,16 @@ export class ZenodoClient {
     baseUrl: string = 'https://zenodo.org',
     apiKey: string | null = null
   ) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+    const trimmed = baseUrl.trim().replace(/\/$/, '');
+    try {
+      new URL(trimmed);
+    } catch {
+      throw new Error(
+        `Invalid ZENODO_BASE_URL: "${baseUrl}". ` +
+          `Expected a valid URL such as "https://zenodo.org".`
+      );
+    }
+    this.baseUrl = trimmed;
     this.apiKey = apiKey;
   }
 
