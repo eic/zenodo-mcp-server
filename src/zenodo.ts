@@ -125,22 +125,53 @@ export interface FileDownloadResult {
   encoding: 'utf-8' | 'base64';
 }
 
+export interface ZenodoCommunity {
+  id: string;
+  title: string;
+  description?: string;
+  curation_policy?: string;
+  logo?: string;
+  links?: {
+    self?: string;
+    html?: string;
+    logo?: string;
+  };
+  created?: string;
+  updated?: string;
+}
+
+export interface CommunitySearchResult {
+  hits: {
+    hits: ZenodoCommunity[];
+    total: number;
+  };
+  links: {
+    self: string;
+    next?: string;
+    prev?: string;
+  };
+}
+
 export interface AuthStatus {
   authenticated: boolean;
   user?: Record<string, unknown>;
+  default_community?: string;
   message: string;
 }
 
 export class ZenodoClient {
   private baseUrl: string;
   private apiKey: string | null;
+  private defaultCommunity: string | null;
 
   constructor(
     baseUrl: string = 'https://zenodo.org',
-    apiKey: string | null = null
+    apiKey: string | null = null,
+    defaultCommunity: string | null = null
   ) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.apiKey = apiKey;
+    this.defaultCommunity = defaultCommunity && defaultCommunity.trim() ? defaultCommunity.trim() : null;
   }
 
   setApiKey(key: string | null): void {
@@ -149,6 +180,10 @@ export class ZenodoClient {
 
   getApiKey(): string | null {
     return this.apiKey;
+  }
+
+  getDefaultCommunity(): string | null {
+    return this.defaultCommunity;
   }
 
   isAuthenticated(): boolean {
@@ -201,9 +236,13 @@ export class ZenodoClient {
   }
 
   async checkAuthStatus(): Promise<AuthStatus> {
+    const base: Pick<AuthStatus, 'default_community'> = {};
+    if (this.defaultCommunity) base.default_community = this.defaultCommunity;
+
     if (!this.isAuthenticated()) {
       return {
         authenticated: false,
+        ...base,
         message:
           'No API key configured. Use the set_api_key tool to provide one ' +
           'for this session, or set the ZENODO_API_KEY environment variable ' +
@@ -220,12 +259,14 @@ export class ZenodoClient {
       return {
         authenticated: true,
         user,
+        ...base,
         message: `Authenticated as ${email || username || 'user'}`,
       };
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       return {
         authenticated: false,
+        ...base,
         message: `API key is set but authentication failed: ${msg}`,
       };
     }
@@ -241,19 +282,41 @@ export class ZenodoClient {
       type?: string;
       subtype?: string;
       allVersions?: boolean;
+      bounds?: string;
     } = {}
   ): Promise<SearchResult> {
     const params: Record<string, string> = { q: query };
     if (options.page !== undefined) params.page = String(options.page);
     if (options.size !== undefined) params.size = String(options.size);
     if (options.sort) params.sort = options.sort;
-    if (options.communities) params.communities = options.communities;
+    // Explicit communities param overrides the default; use default when not set
+    const community = options.communities ?? this.defaultCommunity ?? undefined;
+    if (community) params.communities = community;
     if (options.type) params.type = options.type;
     if (options.subtype) params.subtype = options.subtype;
     if (options.allVersions) params.all_versions = '1';
+    if (options.bounds) params.bounds = options.bounds;
 
     const url = this.buildUrl('/api/records', params);
     return this.request<SearchResult>(url);
+  }
+
+  async getCommunity(id: string): Promise<ZenodoCommunity> {
+    const url = this.buildUrl(`/api/communities/${encodeURIComponent(id)}`);
+    return this.request<ZenodoCommunity>(url);
+  }
+
+  async listCommunities(
+    query?: string,
+    options: { page?: number; size?: number; sort?: string } = {}
+  ): Promise<CommunitySearchResult> {
+    const params: Record<string, string> = {};
+    if (query) params.q = query;
+    if (options.page !== undefined) params.page = String(options.page);
+    if (options.size !== undefined) params.size = String(options.size);
+    if (options.sort) params.sort = options.sort;
+    const url = this.buildUrl('/api/communities', params);
+    return this.request<CommunitySearchResult>(url);
   }
 
   async getRecord(id: string | number): Promise<ZenodoRecord> {
