@@ -44,7 +44,7 @@ Search Zenodo records with full Elasticsearch query syntax.
 }
 ```
 
-**Sort options:** `bestmatch`, `mostrecent`, `mostviewed`, `mostdownloaded` (see API docs for supported sort order).
+**Sort options:** `bestmatch`, `mostrecent`, `mostviewed`, `mostdownloaded`. Prefix with `-` for descending order (e.g. `-mostrecent`). See the [Zenodo search API docs](https://developers.zenodo.org/#search).
 
 **Resource types:** `publication`, `poster`, `presentation`, `dataset`, `image`, `video`, `software`, `lesson`, `other`.
 
