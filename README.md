@@ -111,9 +111,11 @@ node build/src/index.js
     "size": 10,
     "page": 1,
     "sort": "mostrecent",
-    "type": "dataset",
+    "type": "publication",
+    "subtype": "article",
     "communities": "zenodo",
-    "all_versions": false
+    "all_versions": false,
+    "bounds": "143.37,-38.99,146.90,-37.35"
   }
 }
 ```
@@ -121,6 +123,10 @@ node build/src/index.js
 Sort options: `bestmatch`, `mostrecent`, `mostviewed`, `mostdownloaded` (prefix `-` for descending).
 
 Resource types: `publication`, `poster`, `presentation`, `dataset`, `image`, `video`, `software`, `lesson`, `other`.
+
+`bounds` — optional geolocation bounding box: `"west,south,east,north"` in decimal degrees.
+
+When `ZENODO_COMMUNITY` is set, the `communities` parameter defaults to that value if not supplied.
 
 ### `get_record`
 
