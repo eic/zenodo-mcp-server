@@ -75,10 +75,10 @@ docker compose up
 docker build -t zenodo-mcp-server .
 ```
 
-Multi-platform build:
+Multi-platform build (push to registry):
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t zenodo-mcp-server .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/eic/zenodo-mcp-server:latest --push .
 ```
 
 ## Image Tags
