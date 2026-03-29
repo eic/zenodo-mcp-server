@@ -156,6 +156,13 @@ export class ZenodoClient {
           'Use a bare origin such as "https://zenodo.org".'
       );
     }
+    if (url.username || url.password) {
+      throw new Error(
+        'Invalid ZENODO_BASE_URL. ' +
+          'Credentials in the URL are not supported. ' +
+          'Configure authentication via the API key instead.'
+      );
+    }
     this.baseUrl = url.origin;
     this.apiKey = apiKey;
   }

@@ -41,5 +41,26 @@ describe('ZenodoClient', () => {
         /Invalid ZENODO_BASE_URL/
       );
     });
+
+    it('should throw on a URL with a query string', () => {
+      assert.throws(
+        () => new ZenodoClient('https://example.com?foo=1'),
+        /Invalid ZENODO_BASE_URL/
+      );
+    });
+
+    it('should throw on a URL with a fragment', () => {
+      assert.throws(
+        () => new ZenodoClient('https://example.com#frag'),
+        /Invalid ZENODO_BASE_URL/
+      );
+    });
+
+    it('should throw on a URL with credentials', () => {
+      assert.throws(
+        () => new ZenodoClient('https://user:pass@example.com'),
+        /Invalid ZENODO_BASE_URL/
+      );
+    });
   });
 });
