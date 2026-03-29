@@ -22,7 +22,7 @@
 | `discard_deposition` | Discard edits and revert to published state | **Yes** | **Yes** |
 | `new_version` | Create a new version of a published deposition | **Yes** | **Yes** |
 
-> **Write tools** (`create_deposition` and all tools below it) are only available when the server is started with `ZENODO_ALLOW_WRITE=true`. This opt-in prevents AI agents from accidentally modifying Zenodo records.
+> **Write tools** (`create_deposition` and all tools below it) are only available when the server is started with `ZENODO_ALLOW_WRITE=true` (or `ZENODO_ALLOW_WRITE=1`). This opt-in prevents AI agents from accidentally modifying Zenodo records.
 
 ## `search_records`
 
@@ -49,6 +49,10 @@ Search Zenodo records with full Elasticsearch query syntax.
 **Resource types:** `publication`, `poster`, `presentation`, `dataset`, `image`, `video`, `software`, `lesson`, `other`.
 
 **`bounds`** — optional geolocation bounding box filter: `"west,south,east,north"` in decimal degrees.
+
+**`subtype`** — optional resource subtype filter (depends on `type`, e.g. `"article"` for `type=publication`).
+
+**`all_versions`** — set to `true` to include all versions of records (default: `false`, returns only the latest version of each record).
 
 When `ZENODO_COMMUNITY` is set, the `communities` parameter defaults to that value if not supplied.
 

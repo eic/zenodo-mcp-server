@@ -283,7 +283,7 @@ curl -H "Authorization: Bearer $ZENODO_API_KEY" \
 
 ### Extension Points
 - Add new search filters as optional parameters to `search_records`
-- Add resource-type subtype filters
+- Document and extend resource-type subtype filters for `search_records` (e.g., supported subtype values)
 
 ## Resources
 

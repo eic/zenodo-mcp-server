@@ -99,7 +99,7 @@ node build/src/index.js
 | `discard_deposition` | Discard edits and revert to published state | **Yes** | **Yes** |
 | `new_version` | Create a new version of a published deposition | **Yes** | **Yes** |
 
-> Write tools are only available when `ZENODO_ALLOW_WRITE=true` is set. See [docs/TOOLS.md](docs/TOOLS.md) for full parameter details.
+> Write tools are only available when `ZENODO_ALLOW_WRITE=true` (or `ZENODO_ALLOW_WRITE=1`) is set. See [docs/TOOLS.md](docs/TOOLS.md) for full parameter details.
 
 ### `search_records`
 
