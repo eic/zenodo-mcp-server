@@ -7,11 +7,11 @@ An MCP server that allows LLM agents to query and interact with [Zenodo](https:/
 - **Unauthenticated access** – search and inspect public records without an API key
 - **Session API key** – supply a personal access token at runtime via the `set_api_key` tool
 - **Persistent service account** – set `ZENODO_API_KEY` environment variable for a long-lived key
-- **Optional write access** – create, update, and publish depositions (enabled via `ZENODO_ALLOW_WRITE=true`)
+- **Optional write access** – create, update, and publish depositions (requires both an API key **and** `ZENODO_ALLOW_WRITE=true`)
 - Search records with full Elasticsearch query syntax, pagination, and filtering
 - Browse and filter Zenodo communities (`get_community`, `list_communities`)
 - Retrieve record metadata, files, and file content (text or binary)
-- List, create, update, publish, and version depositions (write tools require `ZENODO_ALLOW_WRITE=true`)
+- List depositions (requires authentication); create, update, publish, and version depositions (requires authentication **and** `ZENODO_ALLOW_WRITE=true`)
 - Configurable Zenodo base URL for sandbox or self-hosted instances
 - Optional default community filter via `ZENODO_COMMUNITY`
 
