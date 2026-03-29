@@ -179,10 +179,9 @@ describe('Write operations – live sandbox round-trip', () => {
     await closeClient();
   });
 
-  it('create_deposition returns a new draft with a bucket URL', async () => {
+  it('create_deposition returns a new draft with a bucket URL', async (t) => {
     if (!HAVE_SANDBOX) {
-      console.error('  ⊘ Skipping: ZENODO_SANDBOX_API_KEY not set');
-      return;
+      return t.skip('ZENODO_SANDBOX_API_KEY not set');
     }
     const result = await client.callTool({
       name: 'create_deposition',
@@ -196,10 +195,9 @@ describe('Write operations – live sandbox round-trip', () => {
     depositionId = String(dep.id);
   });
 
-  it('upload_file uploads text content to the draft', async () => {
+  it('upload_file uploads text content to the draft', async (t) => {
     if (!HAVE_SANDBOX || !depositionId) {
-      console.error('  ⊘ Skipping: no sandbox key or deposition');
-      return;
+      return t.skip('no sandbox key or deposition');
     }
     // Get the bucket URL first
     const depResult = await client.callTool({
@@ -224,10 +222,9 @@ describe('Write operations – live sandbox round-trip', () => {
     assert.ok(file.checksum);
   });
 
-  it('update_deposition sets metadata on the draft', async () => {
+  it('update_deposition sets metadata on the draft', async (t) => {
     if (!HAVE_SANDBOX || !depositionId) {
-      console.error('  ⊘ Skipping: no sandbox key or deposition');
-      return;
+      return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({
       name: 'update_deposition',
@@ -248,10 +245,9 @@ describe('Write operations – live sandbox round-trip', () => {
     assert.ok(dep.id);
   });
 
-  it('delete_deposition removes the draft', async () => {
+  it('delete_deposition removes the draft', async (t) => {
     if (!HAVE_SANDBOX || !depositionId) {
-      console.error('  ⊘ Skipping: no sandbox key or deposition');
-      return;
+      return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({
       name: 'delete_deposition',
