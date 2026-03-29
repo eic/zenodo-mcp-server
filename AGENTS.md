@@ -180,7 +180,7 @@ The Zenodo sandbox (`https://sandbox.zenodo.org`) is a separate environment:
 | `get_file_content` | No | No | Download file content (text or base64) |
 | `list_depositions` | **Yes** | No | Your own depositions (drafts + published) |
 | `create_deposition` | **Yes** | **Yes** | Create a new draft deposition |
-| `get_deposition` | **Yes** | **Yes** | Retrieve a deposition by ID |
+| `get_deposition` | **Yes** | No | Retrieve a deposition by ID |
 | `update_deposition` | **Yes** | **Yes** | Update metadata of a draft deposition |
 | `delete_deposition` | **Yes** | **Yes** | Delete an unpublished draft |
 | `upload_file` | **Yes** | **Yes** | Upload a file to a deposition bucket |
@@ -300,7 +300,7 @@ curl -H "Authorization: Bearer $ZENODO_API_KEY" \
   - Deposition listing (1 tool)
 - **Post-v0.1.0 additions**:
   - Community tools: `get_community`, `list_communities`
-  - Write tools (requires `ZENODO_ALLOW_WRITE=true`): `create_deposition`, `get_deposition`, `update_deposition`, `delete_deposition`, `upload_file`, `delete_deposition_file`, `publish_deposition`, `edit_deposition`, `discard_deposition`, `new_version`
+  - Write tools (requires `ZENODO_ALLOW_WRITE=true`): `create_deposition`, `update_deposition`, `delete_deposition`, `upload_file`, `delete_deposition_file`, `publish_deposition`, `edit_deposition`, `discard_deposition`, `new_version`
   - New env vars: `ZENODO_ALLOW_WRITE`, `ZENODO_COMMUNITY`, `ZENODO_MAX_UPLOAD_BYTES`
   - `search_records` gained `bounds`, `subtype`, and `all_versions` parameters; default `communities` from `ZENODO_COMMUNITY`
 

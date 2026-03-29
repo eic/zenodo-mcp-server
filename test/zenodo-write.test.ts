@@ -54,13 +54,19 @@ describe('Write operations – gate and auth enforcement', () => {
       const tools = await readOnlyClient.listTools();
       const names = tools.tools.map((t: { name: string }) => t.name);
       const writeToolNames = [
-        'create_deposition', 'get_deposition', 'update_deposition', 'delete_deposition',
+        'create_deposition', 'update_deposition', 'delete_deposition',
         'upload_file', 'delete_deposition_file',
         'publish_deposition', 'edit_deposition', 'discard_deposition', 'new_version',
       ];
       for (const toolName of writeToolNames) {
         assert.ok(!names.includes(toolName), `${toolName} should not be registered when write is disabled`);
       }
+    });
+
+    it('get_deposition should always be present (not write-gated)', async () => {
+      const tools = await readOnlyClient.listTools();
+      const names = tools.tools.map((t: { name: string }) => t.name);
+      assert.ok(names.includes('get_deposition'), 'get_deposition should be registered even without write access');
     });
 
     it('write tools SHOULD appear when ZENODO_ALLOW_WRITE=true', async () => {
@@ -97,7 +103,6 @@ describe('Write operations – gate and auth enforcement', () => {
     // We call via the MCP protocol directly, bypassing the tool list.
     const writeToolCalls = [
       { name: 'create_deposition', args: {} },
-      { name: 'get_deposition', args: { id: '1' } },
       { name: 'update_deposition', args: { id: '1', metadata: {} } },
       { name: 'delete_deposition', args: { id: '1' } },
       { name: 'publish_deposition', args: { id: '1' } },

@@ -269,6 +269,22 @@ const tools: Tool[] = [
       },
     },
   },
+  {
+    name: 'get_deposition',
+    description:
+      'Retrieve a single deposition (draft or published) owned by the authenticated user. ' +
+      'Requires authentication via set_api_key or ZENODO_API_KEY environment variable.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
 ];
 
 // Write tools — only registered when ZENODO_ALLOW_WRITE is enabled.
@@ -295,22 +311,6 @@ const writeTools: Tool[] = [
             'license (string, e.g. "cc-by-4.0"), keywords (string[]).',
         },
       },
-    },
-  },
-  {
-    name: 'get_deposition',
-    description:
-      'Retrieve a single deposition (draft or published) owned by the authenticated user. ' +
-      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: {
-          type: 'string',
-          description: 'Deposition ID (numeric)',
-        },
-      },
-      required: ['id'],
     },
   },
   {
@@ -859,10 +859,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'get_deposition': {
+        const id = String(safeArgs.id || '').trim();
+        if (!id) throw new Error('id is required');
+        const deposition = await zenodoClient.getDeposition(id);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              id: deposition.id,
+              title: deposition.title || deposition.metadata?.title || '(untitled)',
+              state: deposition.state,
+              submitted: deposition.submitted,
+              doi: deposition.doi,
+              doi_url: deposition.doi_url,
+              metadata: deposition.metadata,
+              links: deposition.links,
+              created: deposition.created,
+              modified: deposition.modified,
+            }, null, 2),
+          }],
+        };
+      }
+
       // ── Write operations ──────────────────────────────────────────────────
 
       case 'create_deposition':
-      case 'get_deposition':
       case 'update_deposition':
       case 'delete_deposition':
       case 'upload_file':
@@ -893,29 +915,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 bucket_url: deposition.links.bucket,
                 links: deposition.links,
                 created: deposition.created,
-              }, null, 2),
-            }],
-          };
-        }
-
-        if (name === 'get_deposition') {
-          const id = String(safeArgs.id || '').trim();
-          if (!id) throw new Error('id is required');
-          const deposition = await zenodoClient.getDeposition(id);
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                id: deposition.id,
-                title: deposition.title || deposition.metadata?.title || '(untitled)',
-                state: deposition.state,
-                submitted: deposition.submitted,
-                doi: deposition.doi,
-                doi_url: deposition.doi_url,
-                metadata: deposition.metadata,
-                links: deposition.links,
-                created: deposition.created,
-                modified: deposition.modified,
               }, null, 2),
             }],
           };
