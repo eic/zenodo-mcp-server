@@ -89,12 +89,53 @@ export interface SearchResult {
   aggregations?: Record<string, unknown>;
 }
 
+/**
+ * Metadata fields accepted by the Zenodo deposition API.
+ * These differ from ZenodoMetadata (used for published records):
+ *  - upload_type / publication_type / image_type instead of resource_type
+ *  - license is a plain id string, not an object
+ */
+export interface ZenodoDepositionMetadata {
+  upload_type?: string;
+  publication_type?: string;
+  image_type?: string;
+  title?: string;
+  description?: string;
+  creators?: ZenodoCreator[];
+  publication_date?: string;
+  access_right?: string;
+  license?: string;
+  embargo_date?: string;
+  access_conditions?: string;
+  doi?: string;
+  preserve_doi?: boolean;
+  keywords?: string[];
+  notes?: string;
+  related_identifiers?: Array<{
+    identifier: string;
+    relation: string;
+    scheme: string;
+  }>;
+  contributors?: Array<{
+    name: string;
+    type: string;
+    affiliation?: string;
+    orcid?: string;
+  }>;
+  references?: string[];
+  communities?: Array<{ identifier: string }>;
+  grants?: Array<{ id: string }>;
+  version?: string;
+  language?: string;
+  [key: string]: unknown;
+}
+
 export interface ZenodoDeposition {
   id: number;
   conceptrecid: string;
   doi?: string;
   doi_url?: string;
-  metadata: Partial<ZenodoMetadata>;
+  metadata: ZenodoDepositionMetadata;
   title: string;
   links: {
     self: string;
@@ -470,5 +511,161 @@ export class ZenodoClient {
 
     const url = this.buildUrl('/api/deposit/depositions', params);
     return this.request<ZenodoDeposition[]>(url);
+  }
+
+  // ── Write operations ─────────────────────────────────────────────────────
+
+  private requireAuth(): void {
+    if (!this.isAuthenticated()) {
+      throw new Error(
+        'Authentication required. Use set_api_key or set the ZENODO_API_KEY environment variable.'
+      );
+    }
+  }
+
+  async createDeposition(
+    metadata?: ZenodoDepositionMetadata
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const body = metadata ? { metadata } : {};
+    const url = this.buildUrl('/api/deposit/depositions');
+    return this.request<ZenodoDeposition>(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getDeposition(id: string | number): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    return this.request<ZenodoDeposition>(url);
+  }
+
+  async updateDeposition(
+    id: string | number,
+    metadata: ZenodoDepositionMetadata
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    return this.request<ZenodoDeposition>(url, {
+      method: 'PUT',
+      body: JSON.stringify({ metadata }),
+    });
+  }
+
+  async deleteDeposition(id: string | number): Promise<void> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
+  }
+
+  private async depositionAction(
+    id: string | number,
+    action: string
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}/actions/${action}`);
+    return this.request<ZenodoDeposition>(url, { method: 'POST', body: '{}' });
+  }
+
+  async publishDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'publish');
+  }
+
+  async editDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'edit');
+  }
+
+  async discardDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'discard');
+  }
+
+  async newVersion(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'newversion');
+  }
+
+  async uploadFile(
+    bucketUrl: string,
+    filename: string,
+    content: string,
+    encoding: 'utf-8' | 'base64' = 'utf-8'
+  ): Promise<ZenodoFile> {
+    this.requireAuth();
+
+    // Validate bucketUrl to prevent SSRF: must be https, same host as baseUrl,
+    // and path must begin with /api/files/
+    const baseOrigin = new URL(this.baseUrl).origin;
+    let parsedBucket: URL;
+    try {
+      parsedBucket = new URL(bucketUrl);
+    } catch {
+      throw new Error('bucket_url is not a valid URL');
+    }
+    if (parsedBucket.protocol !== 'https:') {
+      throw new Error('bucket_url must use the https scheme');
+    }
+    if (parsedBucket.origin !== baseOrigin) {
+      throw new Error(`bucket_url host must match the configured Zenodo host (${baseOrigin})`);
+    }
+    if (!parsedBucket.pathname.startsWith('/api/files/')) {
+      throw new Error('bucket_url path must start with /api/files/');
+    }
+
+    const bytes =
+      encoding === 'base64'
+        ? Buffer.from(content, 'base64')
+        : Buffer.from(content, 'utf-8');
+
+    const headers: Record<string, string> = { ...this.getHeaders() };
+    delete headers['Content-Type']; // Let fetch set it for binary upload
+    headers['Content-Type'] = 'application/octet-stream';
+
+    const url = `${bucketUrl.replace(/\/$/, '')}/${encodeURIComponent(filename)}`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: bytes,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
+
+    return response.json() as Promise<ZenodoFile>;
+  }
+
+  async deleteDepositionFile(
+    depositionId: string | number,
+    fileId: string
+  ): Promise<void> {
+    this.requireAuth();
+    const url = this.buildUrl(
+      `/api/deposit/depositions/${depositionId}/files/${fileId}`
+    );
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
   }
 }

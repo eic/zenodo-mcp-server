@@ -46,12 +46,17 @@ jobs:
         env:
           ZENODO_BASE_URL: https://zenodo.org
           ZENODO_API_KEY: ${{ secrets.ZENODO_API_KEY }}
+          ZENODO_SANDBOX_API_KEY: ${{ secrets.ZENODO_SANDBOX_API_KEY }}
+          ZENODO_ALLOW_WRITE: ${{ secrets.ZENODO_SANDBOX_API_KEY != '' && 'true' || 'false' }}
 
       - name: Generate test summary
         if: always()
         run: node scripts/test-summary.js
         env:
           ZENODO_BASE_URL: https://zenodo.org
+          ZENODO_API_KEY: ${{ secrets.ZENODO_API_KEY }}
+          ZENODO_SANDBOX_API_KEY: ${{ secrets.ZENODO_SANDBOX_API_KEY }}
+          ZENODO_ALLOW_WRITE: ${{ secrets.ZENODO_SANDBOX_API_KEY != '' && 'true' || 'false' }}
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

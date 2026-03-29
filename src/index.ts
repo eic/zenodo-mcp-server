@@ -12,6 +12,12 @@ import { ZenodoClient } from './zenodo.js';
 const ZENODO_BASE_URL =
   process.env.ZENODO_BASE_URL || 'https://zenodo.org';
 const ZENODO_API_KEY = process.env.ZENODO_API_KEY || null;
+const ZENODO_ALLOW_WRITE =
+  process.env.ZENODO_ALLOW_WRITE === 'true' ||
+  process.env.ZENODO_ALLOW_WRITE === '1';
+/** Maximum inline upload size in bytes (default 50 MiB, configurable via ZENODO_MAX_UPLOAD_BYTES). */
+const ZENODO_MAX_UPLOAD_BYTES =
+  parseInt(process.env.ZENODO_MAX_UPLOAD_BYTES || '', 10) || 50 * 1024 * 1024;
 const ZENODO_COMMUNITY = process.env.ZENODO_COMMUNITY || null;
 
 const zenodoClient = new ZenodoClient(ZENODO_BASE_URL, ZENODO_API_KEY, ZENODO_COMMUNITY);
@@ -32,6 +38,9 @@ console.error(`Server: zenodo-mcp-server v0.1.0`);
 console.error(`Zenodo base URL: ${ZENODO_BASE_URL}`);
 console.error(
   `Authentication: ${ZENODO_API_KEY ? 'API key loaded from environment' : 'no key (unauthenticated)'}`
+);
+console.error(
+  `Write access: ${ZENODO_ALLOW_WRITE ? 'ENABLED (ZENODO_ALLOW_WRITE=true)' : 'disabled (set ZENODO_ALLOW_WRITE=true to enable)'}`
 );
 console.error(
   `Default community: ${ZENODO_COMMUNITY || 'none (all communities searched by default)'}`
@@ -261,6 +270,213 @@ const tools: Tool[] = [
     },
   },
 ];
+
+// Write tools — only registered when ZENODO_ALLOW_WRITE is enabled.
+// This prevents AI agents from accidentally modifying Zenodo records
+// unless the operator has explicitly opted in.
+const writeTools: Tool[] = [
+  {
+    name: 'create_deposition',
+    description:
+      'Create a new empty deposition (draft upload) on Zenodo. ' +
+      'Returns the deposition resource including its ID and bucket URL for file uploads. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        metadata: {
+          type: 'object',
+          description:
+            'Optional initial metadata. Common fields: title (string), ' +
+            'upload_type ("publication"|"dataset"|"software"|"poster"|"presentation"|"image"|"video"|"lesson"|"other"), ' +
+            'description (string, HTML allowed), ' +
+            'creators (array of {name, affiliation?, orcid?}), ' +
+            'publication_date (YYYY-MM-DD), access_right ("open"|"embargoed"|"restricted"|"closed"), ' +
+            'license (string, e.g. "cc-by-4.0"), keywords (string[]).',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_deposition',
+    description:
+      'Retrieve a single deposition (draft or published) owned by the authenticated user. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'update_deposition',
+    description:
+      'Update the metadata of an existing draft deposition. ' +
+      'The deposition must be in an editable state (not yet published, or unlocked via edit_deposition). ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+        metadata: {
+          type: 'object',
+          description:
+            'Metadata fields to set. Required before publishing: title, upload_type, description, creators. ' +
+            'See create_deposition for field details.',
+        },
+      },
+      required: ['id', 'metadata'],
+    },
+  },
+  {
+    name: 'delete_deposition',
+    description:
+      'Delete an unpublished (draft) deposition. Published depositions cannot be deleted. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'upload_file',
+    description:
+      'Upload a file to a deposition. Provide the bucket_url from the deposition resource ' +
+      '(deposition.links.bucket), the filename, and the file content as a UTF-8 string or ' +
+      'base64-encoded bytes. Returns the uploaded file resource. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bucket_url: {
+          type: 'string',
+          description: 'The bucket URL from the deposition links (e.g. deposition.links.bucket)',
+        },
+        filename: {
+          type: 'string',
+          description: 'Name to give the file on Zenodo',
+        },
+        content: {
+          type: 'string',
+          description: 'File content as a UTF-8 string, or base64-encoded bytes',
+        },
+        encoding: {
+          type: 'string',
+          enum: ['utf-8', 'base64'],
+          description: 'Content encoding: "utf-8" (default) or "base64"',
+        },
+      },
+      required: ['bucket_url', 'filename', 'content'],
+    },
+  },
+  {
+    name: 'delete_deposition_file',
+    description:
+      'Delete a file from an unpublished deposition. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deposition_id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+        file_id: {
+          type: 'string',
+          description: 'File ID (UUID, as returned in the deposition file resource from upload_file or the Zenodo deposition files listing)',
+        },
+      },
+      required: ['deposition_id', 'file_id'],
+    },
+  },
+  {
+    name: 'publish_deposition',
+    description:
+      'Publish a deposition. Once published, the deposition cannot be deleted and a DOI is registered. ' +
+      'The deposition must have required metadata (title, upload_type, description, creators) and at least one file. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'edit_deposition',
+    description:
+      'Unlock an already-published deposition for editing metadata. ' +
+      'Files cannot be changed after publication; use new_version for that. ' +
+      'Call discard_deposition to abandon edits without publishing changes. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'discard_deposition',
+    description:
+      'Discard all edits made during the current editing session and revert to the published state. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Deposition ID (numeric)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'new_version',
+    description:
+      'Create a new version of a published deposition. Returns the original deposition; ' +
+      'the new draft version is accessible via deposition.links.latest_draft. ' +
+      'Use the new draft ID for update_deposition, upload_file, and publish_deposition. ' +
+      'Requires authentication and ZENODO_ALLOW_WRITE=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'ID of the latest published version of the deposition',
+        },
+      },
+      required: ['id'],
+    },
+  },
+];
+
+if (ZENODO_ALLOW_WRITE) {
+  tools.push(...writeTools);
+}
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools };
@@ -640,6 +856,187 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               ),
             },
           ],
+        };
+      }
+
+      // ── Write operations ──────────────────────────────────────────────────
+
+      case 'create_deposition':
+      case 'get_deposition':
+      case 'update_deposition':
+      case 'delete_deposition':
+      case 'upload_file':
+      case 'delete_deposition_file':
+      case 'publish_deposition':
+      case 'edit_deposition':
+      case 'discard_deposition':
+      case 'new_version': {
+        // Defence-in-depth: reject even if somehow called without the gate
+        if (!ZENODO_ALLOW_WRITE) {
+          throw new Error(
+            `Write operations are disabled. Set ZENODO_ALLOW_WRITE=true to enable them.`
+          );
+        }
+
+        if (name === 'create_deposition') {
+          const metadata = safeArgs.metadata as import('./zenodo.js').ZenodoDepositionMetadata | undefined;
+          const deposition = await zenodoClient.createDeposition(metadata);
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                id: deposition.id,
+                state: deposition.state,
+                submitted: deposition.submitted,
+                title: deposition.title || '(untitled)',
+                doi: deposition.doi,
+                bucket_url: deposition.links.bucket,
+                links: deposition.links,
+                created: deposition.created,
+              }, null, 2),
+            }],
+          };
+        }
+
+        if (name === 'get_deposition') {
+          const id = String(safeArgs.id || '').trim();
+          if (!id) throw new Error('id is required');
+          const deposition = await zenodoClient.getDeposition(id);
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                id: deposition.id,
+                title: deposition.title || deposition.metadata?.title || '(untitled)',
+                state: deposition.state,
+                submitted: deposition.submitted,
+                doi: deposition.doi,
+                doi_url: deposition.doi_url,
+                metadata: deposition.metadata,
+                links: deposition.links,
+                created: deposition.created,
+                modified: deposition.modified,
+              }, null, 2),
+            }],
+          };
+        }
+
+        if (name === 'update_deposition') {
+          const id = String(safeArgs.id || '').trim();
+          if (!id) throw new Error('id is required');
+          if (!safeArgs.metadata) throw new Error('metadata is required');
+          const deposition = await zenodoClient.updateDeposition(
+            id,
+            safeArgs.metadata as import('./zenodo.js').ZenodoDepositionMetadata
+          );
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                id: deposition.id,
+                title: deposition.title || deposition.metadata?.title || '(untitled)',
+                state: deposition.state,
+                modified: deposition.modified,
+                links: deposition.links,
+              }, null, 2),
+            }],
+          };
+        }
+
+        if (name === 'delete_deposition') {
+          const id = String(safeArgs.id || '').trim();
+          if (!id) throw new Error('id is required');
+          await zenodoClient.deleteDeposition(id);
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({ success: true, message: `Deposition ${id} deleted.` }, null, 2),
+            }],
+          };
+        }
+
+        if (name === 'upload_file') {
+          const bucketUrl = String(safeArgs.bucket_url || '').trim();
+          const filename = String(safeArgs.filename || '').trim();
+          const content = String(safeArgs.content ?? '');
+          // Schema enum already constrains values to 'utf-8' | 'base64'; default if omitted
+          const encoding: 'utf-8' | 'base64' =
+            safeArgs.encoding === 'base64' ? 'base64' : 'utf-8';
+          if (!bucketUrl) throw new Error('bucket_url is required');
+          if (!filename) throw new Error('filename is required');
+          // Enforce a maximum inline upload size to avoid excessive memory use.
+          // For base64, compute the accurate decoded byte count by subtracting padding.
+          const contentByteLength =
+            encoding === 'base64'
+              ? Math.floor(content.replace(/\s/g, '').length * 3 / 4) -
+                (content.match(/=+$/) ?? [''])[0].length
+              : Buffer.byteLength(content, 'utf-8');
+          if (contentByteLength > ZENODO_MAX_UPLOAD_BYTES) {
+            throw new Error(
+              `Content exceeds the maximum allowed upload size of ${ZENODO_MAX_UPLOAD_BYTES} bytes. ` +
+              'Set ZENODO_MAX_UPLOAD_BYTES to increase this limit.'
+            );
+          }
+          const file = await zenodoClient.uploadFile(bucketUrl, filename, content, encoding);
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                key: file.key,
+                size: file.size,
+                checksum: file.checksum,
+                download_url: file.links?.self,
+              }, null, 2),
+            }],
+          };
+        }
+
+        if (name === 'delete_deposition_file') {
+          const depositionId = String(safeArgs.deposition_id || '').trim();
+          const fileId = String(safeArgs.file_id || '').trim();
+          if (!depositionId) throw new Error('deposition_id is required');
+          if (!fileId) throw new Error('file_id is required');
+          await zenodoClient.deleteDepositionFile(depositionId, fileId);
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({ success: true, message: `File ${fileId} deleted from deposition ${depositionId}.` }, null, 2),
+            }],
+          };
+        }
+
+        // Deposition actions: publish, edit, discard, new_version
+        const actionId = String(safeArgs.id || '').trim();
+        if (!actionId) throw new Error('id is required');
+
+        const actionMap: Record<string, () => Promise<import('./zenodo.js').ZenodoDeposition>> = {
+          publish_deposition: () => zenodoClient.publishDeposition(actionId),
+          edit_deposition: () => zenodoClient.editDeposition(actionId),
+          discard_deposition: () => zenodoClient.discardDeposition(actionId),
+          new_version: () => zenodoClient.newVersion(actionId),
+        };
+
+        const deposition = await actionMap[name]();
+        const actionMessages: Record<string, string> = {
+          publish_deposition: `Deposition ${actionId} published successfully.`,
+          edit_deposition: `Deposition ${actionId} unlocked for editing.`,
+          discard_deposition: `Edits to deposition ${actionId} discarded.`,
+          new_version: `New version draft created. Access it via links.latest_draft.`,
+        };
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              id: deposition.id,
+              state: deposition.state,
+              submitted: deposition.submitted,
+              doi: deposition.doi,
+              doi_url: deposition.doi_url,
+              links: deposition.links,
+              message: actionMessages[name],
+            }, null, 2),
+          }],
         };
       }
 
