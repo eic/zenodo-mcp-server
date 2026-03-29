@@ -222,7 +222,7 @@ ZENODO_API_KEY="your_token_here"       # optional; unauthenticated if absent
 }
 ```
 
-See [docs/MCP_CLIENT.md](docs/MCP_CLIENT.md) for additional client setup instructions.
+See [MCP_CLIENT.md](MCP_CLIENT.md) for additional client setup instructions.
 
 ### Docker
 
@@ -232,7 +232,7 @@ docker run -i --rm \
   ghcr.io/eic/zenodo-mcp-server:latest
 ```
 
-See [docs/DOCKER.md](docs/DOCKER.md) for full Docker and docker-compose instructions.
+See [DOCKER.md](DOCKER.md) for full Docker and docker-compose instructions.
 
 ## Debugging Tips
 
