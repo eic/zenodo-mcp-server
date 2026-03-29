@@ -169,16 +169,31 @@ export class ZenodoClient {
     apiKey: string | null = null,
     defaultCommunity: string | null = null
   ) {
-    const trimmed = baseUrl.trim().replace(/\/$/, '');
+    const trimmed = baseUrl.trim();
+    let url: URL;
     try {
-      new URL(trimmed);
+      url = new URL(trimmed);
     } catch {
       throw new Error(
-        `Invalid ZENODO_BASE_URL: "${baseUrl}". ` +
-          `Expected a valid URL such as "https://zenodo.org".`
+        'Invalid ZENODO_BASE_URL. ' +
+          'Expected a valid URL such as "https://zenodo.org".'
       );
     }
-    this.baseUrl = trimmed;
+    if (url.pathname !== '/' || url.search || url.hash) {
+      throw new Error(
+        'Invalid ZENODO_BASE_URL. ' +
+          'The base URL must not include a path, query, or fragment. ' +
+          'Use a bare origin such as "https://zenodo.org".'
+      );
+    }
+    if (url.username || url.password) {
+      throw new Error(
+        'Invalid ZENODO_BASE_URL. ' +
+          'Credentials in the URL are not supported. ' +
+          'Configure authentication via the API key instead.'
+      );
+    }
+    this.baseUrl = url.origin;
     this.apiKey = apiKey;
     this.defaultCommunity = defaultCommunity && defaultCommunity.trim() ? defaultCommunity.trim() : null;
   }
