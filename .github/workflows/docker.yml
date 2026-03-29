@@ -20,6 +20,7 @@ on:
       - 'tsconfig.json'
       - 'Dockerfile'
       - '.dockerignore'
+      - '.github/workflows/docker.yml'
   release:
     types: [published]
   workflow_dispatch:
