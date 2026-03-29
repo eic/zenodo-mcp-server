@@ -100,12 +100,13 @@ describe('Search gaps and community tools', () => {
     it('get_auth_status should show no default_community when env var not set', async () => {
       const result = await client.callTool({ name: 'get_auth_status', arguments: {} }) as ToolResult;
 
-      if (result.isError || result.content[0].text.startsWith('Error:')) {
+      const text = result.content?.[0]?.text ?? '';
+      if (result.isError || text.startsWith('Error:')) {
         console.error('  ⊘ Skipping: get_auth_status (no default_community) – tool not reachable in this environment');
         return;
       }
 
-      const status = JSON.parse(result.content[0].text);
+      const status = JSON.parse(text);
       assert.strictEqual(status.default_community, undefined);
     });
 
@@ -187,17 +188,26 @@ describe('Search gaps and community tools', () => {
         arguments: { id: 'zzz_nonexistent_community_xyzxyz' },
       }) as ToolResult;
 
-      const text = result.content[0]?.text ?? '';
+      const text = result.content?.[0]?.text ?? '';
 
       // If the endpoint is clearly unreachable due to network/host issues, skip
-      if (text.match(/ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|network error|getaddrinfo/i)) {
+      if (text.match(/ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|ETIMEDOUT|timeout|network error|getaddrinfo|fetch failed/i)) {
         console.error('  ⊘ Skipping: community endpoint not reachable in this environment');
         return;
       }
 
-      // For a non-existent community, we expect the tool to report an error (for example a 404 / "not found")
-      if (result.isError || /404|not\s*found/i.test(text)) {
-        return; // expected error: test passes
+      // For a non-existent community, we expect a clear 404 / "not found" indication
+      if (result.isError) {
+        if (/404|not\s*found/i.test(text)) {
+          return; // expected error: test passes
+        }
+        // Some other error (likely environment/network/infra related): skip this test
+        console.error('  ⊘ Skipping: unexpected error for non-existent community (likely environment issue)');
+        return;
+      }
+
+      if (/404|not\s*found/i.test(text)) {
+        return; // expected error reported in a non-error payload
       }
 
       // If we reach here, the tool incorrectly returned a successful response for a non-existent community
