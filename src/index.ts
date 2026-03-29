@@ -364,16 +364,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             : undefined,
           type: safeArgs.type ? String(safeArgs.type) : undefined,
           subtype: safeArgs.subtype ? String(safeArgs.subtype) : undefined,
-          allVersions: safeArgs.all_versions
-            ? Boolean(safeArgs.all_versions)
-            : undefined,
+          allVersions:
+            safeArgs.all_versions !== undefined &&
+            safeArgs.all_versions !== null
+              ? safeArgs.all_versions === true ||
+                String(safeArgs.all_versions).toLowerCase() === 'true'
+              : undefined,
           bounds: safeArgs.bounds ? String(safeArgs.bounds) : undefined,
         });
 
         const simplified = {
           total: results.hits.total,
-          page: safeArgs.page || 1,
-          size: safeArgs.size || 10,
+          page: safeArgs.page !== undefined ? Number(safeArgs.page) : 1,
+          size: safeArgs.size !== undefined ? Number(safeArgs.size) : 10,
           community: zenodoClient.getDefaultCommunity() ?? undefined,
           next: results.links.next,
           records: results.hits.hits.map((r) => ({

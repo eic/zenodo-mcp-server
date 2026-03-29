@@ -17,7 +17,7 @@ async function makeClient(env: Record<string, string> = {}): Promise<{ client: C
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: ['build/src/index.js'],
-    env: { ...process.env, ZENODO_BASE_URL: TEST_BASE_URL, ZENODO_API_KEY: '', ...env },
+    env: { ...process.env, ZENODO_BASE_URL: TEST_BASE_URL, ZENODO_API_KEY: '', ZENODO_COMMUNITY: '', ...env },
   });
   const client = new Client({ name: 'zenodo-search-test-client', version: '1.0.0' }, { capabilities: {} });
   await client.connect(transport);
@@ -181,11 +181,14 @@ describe('Search gaps and community tools', () => {
         arguments: { id: 'zzz_nonexistent_community_xyzxyz' },
       }) as ToolResult;
 
-      // Either isError or a network skip; either is acceptable
-      if (!result.isError && !result.content[0].text.startsWith('Error:')) {
-        // If Zenodo is not reachable, skip
+      // If Zenodo is not reachable or returns an expected 404 error, skip
+      if (result.isError || result.content[0].text.startsWith('Error:')) {
         console.error('  ⊘ Skipping: community endpoint not reachable in this environment');
+        return;
       }
+
+      // If we reach here, the tool incorrectly returned a successful response for a non-existent community
+      assert.fail('Expected an error for non-existent community, but got a successful response.');
     });
 
     it('should require id parameter', async () => {
