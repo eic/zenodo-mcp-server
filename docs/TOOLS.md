@@ -12,7 +12,7 @@
 | `get_file_content` | Download file content (text or base64) | No | No |
 | `list_depositions` | List your own depositions (drafts + published) | **Yes** | No |
 | `create_deposition` | Create a new empty deposition (draft) | **Yes** | **Yes** |
-| `get_deposition` | Retrieve a single deposition by ID | **Yes** | **Yes** |
+| `get_deposition` | Retrieve a single deposition by ID | **Yes** | No |
 | `update_deposition` | Update metadata of a draft deposition | **Yes** | **Yes** |
 | `delete_deposition` | Delete an unpublished draft deposition | **Yes** | **Yes** |
 | `upload_file` | Upload a file to a deposition | **Yes** | **Yes** |
@@ -44,7 +44,7 @@ Search Zenodo records with full Elasticsearch query syntax.
 }
 ```
 
-**Sort options:** `bestmatch`, `mostrecent`, `mostviewed`, `mostdownloaded` (prefix `-` for descending).
+**Sort options:** `bestmatch`, `mostrecent`, `mostviewed`, `mostdownloaded` (see API docs for supported sort order).
 
 **Resource types:** `publication`, `poster`, `presentation`, `dataset`, `image`, `video`, `software`, `lesson`, `other`.
 
