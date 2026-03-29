@@ -15,4 +15,4 @@
 
 * Development
   * [Contributing](CONTRIBUTING.md)
-  * [Agent Instructions](../AGENTS.md)
+  * [Agent Instructions](AGENTS.md)
