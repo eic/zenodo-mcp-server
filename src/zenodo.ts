@@ -384,4 +384,140 @@ export class ZenodoClient {
     const url = this.buildUrl('/api/deposit/depositions', params);
     return this.request<ZenodoDeposition[]>(url);
   }
+
+  // ── Write operations ─────────────────────────────────────────────────────
+
+  private requireAuth(): void {
+    if (!this.isAuthenticated()) {
+      throw new Error(
+        'Authentication required. Use set_api_key or set the ZENODO_API_KEY environment variable.'
+      );
+    }
+  }
+
+  async createDeposition(
+    metadata?: Partial<ZenodoMetadata>
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const body = metadata ? { metadata } : {};
+    const url = this.buildUrl('/api/deposit/depositions');
+    return this.request<ZenodoDeposition>(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getDeposition(id: string | number): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    return this.request<ZenodoDeposition>(url);
+  }
+
+  async updateDeposition(
+    id: string | number,
+    metadata: Partial<ZenodoMetadata>
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    return this.request<ZenodoDeposition>(url, {
+      method: 'PUT',
+      body: JSON.stringify({ metadata }),
+    });
+  }
+
+  async deleteDeposition(id: string | number): Promise<void> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}`);
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
+  }
+
+  private async depositionAction(
+    id: string | number,
+    action: string
+  ): Promise<ZenodoDeposition> {
+    this.requireAuth();
+    const url = this.buildUrl(`/api/deposit/depositions/${id}/actions/${action}`);
+    return this.request<ZenodoDeposition>(url, { method: 'POST', body: '{}' });
+  }
+
+  async publishDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'publish');
+  }
+
+  async editDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'edit');
+  }
+
+  async discardDeposition(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'discard');
+  }
+
+  async newVersion(id: string | number): Promise<ZenodoDeposition> {
+    return this.depositionAction(id, 'newversion');
+  }
+
+  async uploadFile(
+    bucketUrl: string,
+    filename: string,
+    content: string,
+    encoding: 'utf-8' | 'base64' = 'utf-8'
+  ): Promise<ZenodoFile> {
+    this.requireAuth();
+    const bytes =
+      encoding === 'base64'
+        ? Buffer.from(content, 'base64')
+        : Buffer.from(content, 'utf-8');
+
+    const headers: Record<string, string> = { ...this.getHeaders() };
+    delete headers['Content-Type']; // Let fetch set it for binary upload
+    headers['Content-Type'] = 'application/octet-stream';
+
+    const url = `${bucketUrl.replace(/\/$/, '')}/${encodeURIComponent(filename)}`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: bytes,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
+
+    return response.json() as Promise<ZenodoFile>;
+  }
+
+  async deleteDepositionFile(
+    depositionId: string | number,
+    fileId: string
+  ): Promise<void> {
+    this.requireAuth();
+    const url = this.buildUrl(
+      `/api/deposit/depositions/${depositionId}/files/${fileId}`
+    );
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        errorMessage += `: ${await response.text()}`;
+      } catch { /* ignore */ }
+      throw new Error(`Zenodo API error ${errorMessage}`);
+    }
+  }
 }
