@@ -63,7 +63,7 @@ describe('Search gaps and community tools', () => {
         return;
       }
       const data = JSON.parse(text);
-      assert.ok(data.hasOwnProperty('total'), 'Missing total field');
+      assert.ok(Object.hasOwn(data, 'total'), 'Missing total field');
       assert.ok(Array.isArray(data.records));
     });
 
@@ -237,7 +237,7 @@ describe('Search gaps and community tools', () => {
       }
 
       const data = JSON.parse(result.content[0].text);
-      assert.ok(data.hasOwnProperty('total'));
+      assert.ok(Object.hasOwn(data, 'total'));
       assert.ok(Array.isArray(data.communities));
       assert.ok(data.communities.length <= 5);
     });

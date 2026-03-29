@@ -11,8 +11,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const SANDBOX_BASE_URL = 'https://sandbox.zenodo.org';
-const SANDBOX_API_KEY = process.env.ZENODO_SANDBOX_API_KEY || '';
-const HAVE_SANDBOX = SANDBOX_API_KEY.length > 0;
+const SANDBOX_API_KEY = process.env.ZENODO_SANDBOX_API_KEY;
+const HAVE_SANDBOX = typeof SANDBOX_API_KEY === 'string' && SANDBOX_API_KEY.length > 0;
 
 type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
 
@@ -98,7 +98,7 @@ describe('Write operations – gate and auth enforcement', () => {
     });
   });
 
-  describe('Defence-in-depth: write blocked even if called on write-disabled server', () => {
+  describe('Defense-in-depth: write blocked even if called on write-disabled server', () => {
     // These verify the handler-level guard, not just the tool-registration guard.
     // We call via the MCP protocol directly, bypassing the tool list.
     const writeToolCalls = [
@@ -160,12 +160,13 @@ describe('Write operations – gate and auth enforcement', () => {
 });
 
 describe('Write operations – live sandbox round-trip', () => {
-  let client: Client;
-  let closeClient: () => Promise<void>;
+  let client: Client | undefined;
+  let closeClient: (() => Promise<void>) | undefined;
   let depositionId: string;
 
   before(async () => {
     if (!HAVE_SANDBOX) return;
+    if (!SANDBOX_API_KEY) return;
     ({ client, close: closeClient } = await makeClient({
       ZENODO_BASE_URL: SANDBOX_BASE_URL,
       ZENODO_API_KEY: SANDBOX_API_KEY,
@@ -176,16 +177,23 @@ describe('Write operations – live sandbox round-trip', () => {
   after(async () => {
     if (!HAVE_SANDBOX) return;
     // Clean up: delete the draft if it wasn't already deleted in the test
-    if (depositionId) {
-      try {
-        await client.callTool({ name: 'delete_deposition', arguments: { id: depositionId } });
-      } catch { /* best effort */ }
+    try {
+      if (client && depositionId) {
+        try {
+          await client.callTool({ name: 'delete_deposition', arguments: { id: depositionId } });
+        } catch {
+          /* best effort */
+        }
+      }
+    } finally {
+      if (closeClient) {
+        await closeClient();
+      }
     }
-    await closeClient();
   });
 
   it('create_deposition returns a new draft with a bucket URL', async (t) => {
-    if (!HAVE_SANDBOX) {
+    if (!HAVE_SANDBOX || !client) {
       return t.skip('ZENODO_SANDBOX_API_KEY not set');
     }
     const result = await client.callTool({
@@ -201,7 +209,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('upload_file uploads text content to the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     // Get the bucket URL first
@@ -228,7 +236,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('update_deposition sets metadata on the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({
@@ -251,7 +259,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('delete_deposition removes the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({
