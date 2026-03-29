@@ -15,6 +15,9 @@ const ZENODO_API_KEY = process.env.ZENODO_API_KEY || null;
 const ZENODO_ALLOW_WRITE =
   process.env.ZENODO_ALLOW_WRITE === 'true' ||
   process.env.ZENODO_ALLOW_WRITE === '1';
+/** Maximum inline upload size in bytes (default 50 MiB, configurable via ZENODO_MAX_UPLOAD_BYTES). */
+const ZENODO_MAX_UPLOAD_BYTES =
+  parseInt(process.env.ZENODO_MAX_UPLOAD_BYTES || '', 10) || 50 * 1024 * 1024;
 
 const zenodoClient = new ZenodoClient(ZENODO_BASE_URL, ZENODO_API_KEY);
 
@@ -318,6 +321,7 @@ const writeTools: Tool[] = [
         },
         encoding: {
           type: 'string',
+          enum: ['utf-8', 'base64'],
           description: 'Content encoding: "utf-8" (default) or "base64"',
         },
       },
@@ -338,7 +342,7 @@ const writeTools: Tool[] = [
         },
         file_id: {
           type: 'string',
-          description: 'File ID (UUID, as returned by upload_file or list_record_files)',
+          description: 'File ID (UUID, as returned in the deposition file resource from upload_file or the Zenodo deposition files listing)',
         },
       },
       required: ['deposition_id', 'file_id'],
@@ -762,7 +766,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         if (name === 'create_deposition') {
-          const metadata = safeArgs.metadata as Partial<import('./zenodo.js').ZenodoMetadata> | undefined;
+          const metadata = safeArgs.metadata as import('./zenodo.js').ZenodoDepositionMetadata | undefined;
           const deposition = await zenodoClient.createDeposition(metadata);
           return {
             content: [{
@@ -810,7 +814,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!safeArgs.metadata) throw new Error('metadata is required');
           const deposition = await zenodoClient.updateDeposition(
             id,
-            safeArgs.metadata as Partial<import('./zenodo.js').ZenodoMetadata>
+            safeArgs.metadata as import('./zenodo.js').ZenodoDepositionMetadata
           );
           return {
             content: [{
@@ -842,9 +846,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const bucketUrl = String(safeArgs.bucket_url || '').trim();
           const filename = String(safeArgs.filename || '').trim();
           const content = String(safeArgs.content ?? '');
-          const encoding = (safeArgs.encoding === 'base64' ? 'base64' : 'utf-8') as 'utf-8' | 'base64';
+          // Schema enum already constrains values to 'utf-8' | 'base64'; default if omitted
+          const encoding: 'utf-8' | 'base64' =
+            safeArgs.encoding === 'base64' ? 'base64' : 'utf-8';
           if (!bucketUrl) throw new Error('bucket_url is required');
           if (!filename) throw new Error('filename is required');
+          // Enforce a maximum inline upload size to avoid excessive memory use.
+          // For base64, compute the accurate decoded byte count by subtracting padding.
+          const contentByteLength =
+            encoding === 'base64'
+              ? Math.floor(content.replace(/\s/g, '').length * 3 / 4) -
+                (content.match(/=+$/) ?? [''])[0].length
+              : Buffer.byteLength(content, 'utf-8');
+          if (contentByteLength > ZENODO_MAX_UPLOAD_BYTES) {
+            throw new Error(
+              `Content exceeds the maximum allowed upload size of ${ZENODO_MAX_UPLOAD_BYTES} bytes. ` +
+              'Set ZENODO_MAX_UPLOAD_BYTES to increase this limit.'
+            );
+          }
           const file = await zenodoClient.uploadFile(bucketUrl, filename, content, encoding);
           return {
             content: [{

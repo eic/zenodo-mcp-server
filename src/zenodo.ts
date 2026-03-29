@@ -89,12 +89,53 @@ export interface SearchResult {
   aggregations?: Record<string, unknown>;
 }
 
+/**
+ * Metadata fields accepted by the Zenodo deposition API.
+ * These differ from ZenodoMetadata (used for published records):
+ *  - upload_type / publication_type / image_type instead of resource_type
+ *  - license is a plain id string, not an object
+ */
+export interface ZenodoDepositionMetadata {
+  upload_type?: string;
+  publication_type?: string;
+  image_type?: string;
+  title?: string;
+  description?: string;
+  creators?: ZenodoCreator[];
+  publication_date?: string;
+  access_right?: string;
+  license?: string;
+  embargo_date?: string;
+  access_conditions?: string;
+  doi?: string;
+  preserve_doi?: boolean;
+  keywords?: string[];
+  notes?: string;
+  related_identifiers?: Array<{
+    identifier: string;
+    relation: string;
+    scheme: string;
+  }>;
+  contributors?: Array<{
+    name: string;
+    type: string;
+    affiliation?: string;
+    orcid?: string;
+  }>;
+  references?: string[];
+  communities?: Array<{ identifier: string }>;
+  grants?: Array<{ id: string }>;
+  version?: string;
+  language?: string;
+  [key: string]: unknown;
+}
+
 export interface ZenodoDeposition {
   id: number;
   conceptrecid: string;
   doi?: string;
   doi_url?: string;
-  metadata: Partial<ZenodoMetadata>;
+  metadata: ZenodoDepositionMetadata;
   title: string;
   links: {
     self: string;
@@ -396,7 +437,7 @@ export class ZenodoClient {
   }
 
   async createDeposition(
-    metadata?: Partial<ZenodoMetadata>
+    metadata?: ZenodoDepositionMetadata
   ): Promise<ZenodoDeposition> {
     this.requireAuth();
     const body = metadata ? { metadata } : {};
@@ -415,7 +456,7 @@ export class ZenodoClient {
 
   async updateDeposition(
     id: string | number,
-    metadata: Partial<ZenodoMetadata>
+    metadata: ZenodoDepositionMetadata
   ): Promise<ZenodoDeposition> {
     this.requireAuth();
     const url = this.buildUrl(`/api/deposit/depositions/${id}`);
@@ -473,6 +514,26 @@ export class ZenodoClient {
     encoding: 'utf-8' | 'base64' = 'utf-8'
   ): Promise<ZenodoFile> {
     this.requireAuth();
+
+    // Validate bucketUrl to prevent SSRF: must be https, same host as baseUrl,
+    // and path must begin with /api/files/
+    const baseOrigin = new URL(this.baseUrl).origin;
+    let parsedBucket: URL;
+    try {
+      parsedBucket = new URL(bucketUrl);
+    } catch {
+      throw new Error('bucket_url is not a valid URL');
+    }
+    if (parsedBucket.protocol !== 'https:') {
+      throw new Error('bucket_url must use the https scheme');
+    }
+    if (parsedBucket.origin !== baseOrigin) {
+      throw new Error(`bucket_url host must match the configured Zenodo host (${baseOrigin})`);
+    }
+    if (!parsedBucket.pathname.startsWith('/api/files/')) {
+      throw new Error('bucket_url path must start with /api/files/');
+    }
+
     const bytes =
       encoding === 'base64'
         ? Buffer.from(content, 'base64')
