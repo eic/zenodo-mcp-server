@@ -20,11 +20,16 @@ services:
           memory: 128M
     restart: unless-stopped
 
-  # Watchtower automatically pulls and restarts the zenodo-mcp-server container
+  # Optional: Watchtower automatically pulls and restarts the zenodo-mcp-server container
   # whenever a new image is published to ghcr.io.
+  # NOTE: Watchtower requires access to the Docker daemon socket (/var/run/docker.sock),
+  # which grants it full control over the host Docker daemon. Enable only if you accept
+  # this risk, e.g.: docker compose --profile watchtower up -d
   watchtower:
     image: containrrr/watchtower:1.7.1
     container_name: zenodo-mcp-server-watchtower
+    profiles:
+      - watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # Only watch the zenodo-mcp-server container (not watchtower itself)
