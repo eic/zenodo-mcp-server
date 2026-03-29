@@ -10,8 +10,8 @@ describe('ZenodoClient', () => {
 
     it('should strip trailing slash from base URL', () => {
       const client = new ZenodoClient('https://zenodo.org/');
-      // Access via a search to confirm the URL is normalized; just check no throw
-      assert.ok(client);
+      const internalBaseUrl = (client as any).baseUrl;
+      assert.strictEqual(internalBaseUrl, 'https://zenodo.org');
     });
 
     it('should throw on an invalid base URL', () => {
@@ -31,6 +31,13 @@ describe('ZenodoClient', () => {
     it('should throw on a relative path as base URL', () => {
       assert.throws(
         () => new ZenodoClient('/api'),
+        /Invalid ZENODO_BASE_URL/
+      );
+    });
+
+    it('should throw on a URL with a non-root path', () => {
+      assert.throws(
+        () => new ZenodoClient('https://example.com/api'),
         /Invalid ZENODO_BASE_URL/
       );
     });
