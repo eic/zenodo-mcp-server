@@ -168,15 +168,29 @@ The Zenodo sandbox (`https://sandbox.zenodo.org`) is a separate environment:
 
 ## Tool Reference
 
-| Tool | Auth required | Description |
-|------|:---:|---------|
-| `get_auth_status` | No | Current auth state and setup guidance |
-| `set_api_key` | No | Store a personal access token in-session |
-| `search_records` | No | Elasticsearch query across public records |
-| `get_record` | No | Full metadata for a record by ID or DOI |
-| `list_record_files` | No | Files attached to a record |
-| `get_file_content` | No | Download file content (text or base64) |
-| `list_depositions` | **Yes** | Your own depositions (drafts + published) |
+| Tool | Auth required | Write required | Description |
+|------|:---:|:---:|---------|
+| `get_auth_status` | No | No | Current auth state and setup guidance |
+| `set_api_key` | No | No | Store a personal access token in-session |
+| `search_records` | No | No | Elasticsearch query across public records |
+| `get_community` | No | No | Details about a specific community by ID |
+| `list_communities` | No | No | Search or list Zenodo communities |
+| `get_record` | No | No | Full metadata for a record by ID or DOI |
+| `list_record_files` | No | No | Files attached to a record |
+| `get_file_content` | No | No | Download file content (text or base64) |
+| `list_depositions` | **Yes** | No | Your own depositions (drafts + published) |
+| `create_deposition` | **Yes** | **Yes** | Create a new draft deposition |
+| `get_deposition` | **Yes** | **Yes** | Retrieve a deposition by ID |
+| `update_deposition` | **Yes** | **Yes** | Update metadata of a draft deposition |
+| `delete_deposition` | **Yes** | **Yes** | Delete an unpublished draft |
+| `upload_file` | **Yes** | **Yes** | Upload a file to a deposition bucket |
+| `delete_deposition_file` | **Yes** | **Yes** | Delete a file from an unpublished deposition |
+| `publish_deposition` | **Yes** | **Yes** | Publish a deposition and register a DOI |
+| `edit_deposition` | **Yes** | **Yes** | Unlock a published deposition for metadata edits |
+| `discard_deposition` | **Yes** | **Yes** | Discard edits and revert to published state |
+| `new_version` | **Yes** | **Yes** | Create a new version of a published deposition |
+
+Write tools are only registered when `ZENODO_ALLOW_WRITE=true` (or `1`).
 
 ## Configuration
 
@@ -185,6 +199,9 @@ The Zenodo sandbox (`https://sandbox.zenodo.org`) is a separate environment:
 ```bash
 ZENODO_BASE_URL="https://zenodo.org"   # optional, default shown
 ZENODO_API_KEY="your_token_here"       # optional; unauthenticated if absent
+ZENODO_ALLOW_WRITE="true"             # optional; enables write tools when set to true or 1
+ZENODO_COMMUNITY="eic"                # optional; default community for searches
+ZENODO_MAX_UPLOAD_BYTES="52428800"    # optional; max upload size in bytes (default 50 MiB)
 ```
 
 ### MCP Client Configuration
@@ -261,16 +278,12 @@ curl -H "Authorization: Bearer $ZENODO_API_KEY" \
 ## Future Development
 
 ### Potential Features
-1. **Create/update depositions** — `deposit:write` scope, POST/PUT to `/api/deposit/depositions`
-2. **Upload files** — multipart upload to deposition file bucket
-3. **Publish depositions** — POST to `/api/deposit/depositions/:id/actions/publish`
-4. **Community search** — filter records by Zenodo community identifier
-5. **Versioning support** — navigate record versions via `conceptrecid`
+1. **Community search** — additional filter parameters for `list_communities`
+2. **Versioning navigation** — navigate record versions via `conceptrecid`
 
 ### Extension Points
 - Add new search filters as optional parameters to `search_records`
-- Implement deposition mutation tools gated behind `deposit:write` scope check
-- Add a `get_community` tool for community metadata
+- Document and extend resource-type subtype filters for `search_records` (e.g., supported subtype values)
 
 ## Resources
 
@@ -285,6 +298,11 @@ curl -H "Authorization: Bearer $ZENODO_API_KEY" \
   - Authentication management (2 tools)
   - Record search and retrieval (4 tools)
   - Deposition listing (1 tool)
+- **Post-v0.1.0 additions**:
+  - Community tools: `get_community`, `list_communities`
+  - Write tools (requires `ZENODO_ALLOW_WRITE=true`): `create_deposition`, `get_deposition`, `update_deposition`, `delete_deposition`, `upload_file`, `delete_deposition_file`, `publish_deposition`, `edit_deposition`, `discard_deposition`, `new_version`
+  - New env vars: `ZENODO_ALLOW_WRITE`, `ZENODO_COMMUNITY`, `ZENODO_MAX_UPLOAD_BYTES`
+  - `search_records` gained `bounds`, `subtype`, and `all_versions` parameters; default `communities` from `ZENODO_COMMUNITY`
 
 ---
 
