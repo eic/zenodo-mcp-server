@@ -53,6 +53,9 @@ Omit `ZENODO_API_KEY` for unauthenticated access to public records.
 |----------|---------|-------------|
 | `ZENODO_BASE_URL` | `https://zenodo.org` | Base URL (use `https://sandbox.zenodo.org` for testing) |
 | `ZENODO_API_KEY` | *(none)* | Personal access token |
+| `ZENODO_ALLOW_WRITE` | *(unset)* | Set to `true` or `1` to enable write tools (depositions) |
+| `ZENODO_COMMUNITY` | *(none)* | Default community identifier applied to searches |
+| `ZENODO_MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Maximum file size for the `upload_file` tool |
 
 ## Docker Compose
 
