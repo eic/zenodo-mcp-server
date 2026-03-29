@@ -46,7 +46,7 @@ docs/             # Docsify documentation site
 ### 3. MCP Protocol Standards
 - **Tool schemas**: Define clear JSON schemas for all input parameters
 - **Response format**: Return `{ content: [{ type: 'text', text: JSON.stringify(..., null, 2) }] }`
-- **Error responses**: Use `{ content: [...], isError: true }` — never throw unhandled errors out of tool handlers
+- **Error responses**: Prefer `{ content: [...], isError: true }` for tool failures so errors are returned as MCP responses; avoid throwing from handlers except for programming/validation errors handled by the server infrastructure
 - **Capabilities**: Only declare `tools` (no resources/prompts currently)
 
 ### 4. TypeScript Best Practices
@@ -80,10 +80,9 @@ export interface NewResult {
 2. **Implement the method** on `ZenodoClient`:
 ```typescript
 async newOperation(param: string): Promise<NewResult> {
-  const url = `${this.baseUrl}/api/endpoint?q=${encodeURIComponent(param)}`;
-  const res = await this.fetch(url);
-  if (!res.ok) throw new Error(`Zenodo API error: ${res.status}`);
-  return res.json() as Promise<NewResult>;
+  // buildUrl() constructs the full URL with query params; request<T>() handles auth headers and error checking
+  const url = this.buildUrl('/api/endpoint', { q: param });
+  return this.request<NewResult>(url);
 }
 ```
 
@@ -125,9 +124,10 @@ case 'new_operation': {
 try {
   const result = await zenodoClient.someOperation(id);
   return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-} catch (error: any) {
+} catch (error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
   return {
-    content: [{ type: 'text', text: `Error: ${error.message}` }],
+    content: [{ type: 'text', text: `Error: ${message}` }],
     isError: true,
   };
 }
@@ -138,12 +138,13 @@ const result = await zenodoClient.someOperation(id);
 
 ### Working with Zenodo Record IDs
 
-Zenodo accepts both numeric IDs and DOIs interchangeably in `get_record`. The client resolves DOIs by hitting `https://zenodo.org/api/records/<id>` where `<id>` can be:
+The `get_record` handler accepts both numeric IDs and DOI-style IDs as input, but it normalizes DOI-style values to their numeric record ID before calling `ZenodoClient.getRecord()`. For example, an input ID can be:
 - A plain integer: `1234567`
-- A DOI: `10.5281/zenodo.1234567` (URL-encoded when passed as query param)
+- A DOI-style ID: `10.5281/zenodo.1234567` (normalized to `1234567` before the API call)
 
 ```typescript
-// Normalize: strip DOI prefix if present
+// In the get_record handler (src/index.ts), before calling ZenodoClient.getRecord():
+// Normalize DOI-style IDs to a plain numeric record ID before calling Zenodo
 const numericId = id.replace(/^10\.5281\/zenodo\./, '');
 ```
 
@@ -188,6 +189,8 @@ ZENODO_API_KEY="your_token_here"       # optional; unauthenticated if absent
 
 ### MCP Client Configuration
 
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
@@ -201,6 +204,25 @@ ZENODO_API_KEY="your_token_here"       # optional; unauthenticated if absent
   }
 }
 ```
+
+**VS Code / GitHub Copilot** — add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "zenodo": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/zenodo-mcp-server/build/src/index.js"],
+      "env": {
+        "ZENODO_API_KEY": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+See [docs/MCP_CLIENT.md](docs/MCP_CLIENT.md) for additional client setup instructions.
 
 ### Docker
 
