@@ -155,15 +155,16 @@ describe('Write operations – gate and auth enforcement', () => {
 });
 
 describe('Write operations – live sandbox round-trip', () => {
-  let client: Client;
-  let closeClient: () => Promise<void>;
+  let client: Client | undefined;
+  let closeClient: (() => Promise<void>) | undefined;
   let depositionId: string;
 
   before(async () => {
     if (!HAVE_SANDBOX) return;
+    if (!SANDBOX_API_KEY) return;
     ({ client, close: closeClient } = await makeClient({
       ZENODO_BASE_URL: SANDBOX_BASE_URL,
-      ZENODO_API_KEY: SANDBOX_API_KEY!,
+      ZENODO_API_KEY: SANDBOX_API_KEY,
       ZENODO_ALLOW_WRITE: 'true',
     }));
   });
@@ -187,7 +188,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('create_deposition returns a new draft with a bucket URL', async (t) => {
-    if (!HAVE_SANDBOX) {
+    if (!HAVE_SANDBOX || !client) {
       return t.skip('ZENODO_SANDBOX_API_KEY not set');
     }
     const result = await client.callTool({
@@ -203,7 +204,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('upload_file uploads text content to the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     // Get the bucket URL first
@@ -230,7 +231,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('update_deposition sets metadata on the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({
@@ -253,7 +254,7 @@ describe('Write operations – live sandbox round-trip', () => {
   });
 
   it('delete_deposition removes the draft', async (t) => {
-    if (!HAVE_SANDBOX || !depositionId) {
+    if (!HAVE_SANDBOX || !depositionId || !client) {
       return t.skip('no sandbox key or deposition');
     }
     const result = await client.callTool({

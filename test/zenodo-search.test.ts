@@ -237,7 +237,7 @@ describe('Search gaps and community tools', () => {
       }
 
       const data = JSON.parse(result.content[0].text);
-      assert.ok('total' in data);
+      assert.ok(Object.hasOwn(data, 'total'));
       assert.ok(Array.isArray(data.communities));
       assert.ok(data.communities.length <= 5);
     });
