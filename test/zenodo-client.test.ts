@@ -2,6 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { ZenodoClient } from '../src/zenodo.js';
 
+interface ZenodoClientInternal {
+  baseUrl: string;
+}
+
 describe('ZenodoClient', () => {
   describe('constructor', () => {
     it('should accept a valid base URL', () => {
@@ -10,13 +14,13 @@ describe('ZenodoClient', () => {
 
     it('should strip trailing slash from base URL', () => {
       const client = new ZenodoClient('https://zenodo.org/');
-      const internalBaseUrl = (client as any).baseUrl;
+      const internalBaseUrl = (client as unknown as ZenodoClientInternal).baseUrl;
       assert.strictEqual(internalBaseUrl, 'https://zenodo.org');
     });
 
     it('should throw on an invalid base URL', () => {
       assert.throws(
-        () => new ZenodoClient('https://zenodo.org ZENODO_API_KEY'),
+        () => new ZenodoClient('not a url'),
         /Invalid ZENODO_BASE_URL/
       );
     });
