@@ -7,6 +7,7 @@ services:
     environment:
       ZENODO_BASE_URL: ${ZENODO_BASE_URL:-https://zenodo.org}
       ZENODO_API_KEY: ${ZENODO_API_KEY:-}
+      ZENODO_COMMUNITY: ${ZENODO_COMMUNITY:-}
       NODE_ENV: production
     deploy:
       resources:
