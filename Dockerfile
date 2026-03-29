@@ -35,4 +35,4 @@ LABEL org.opencontainers.image.title="Zenodo MCP Server" \
       org.opencontainers.image.source="https://github.com/eic/zenodo-mcp-server" \
       org.opencontainers.image.licenses="MIT"
 
-CMD ["node", "build/src/index.js"]
+CMD ["node", "build/index.js"]
