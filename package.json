@@ -20,6 +20,9 @@
     "repository",
     "open-science"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "author": "",
   "license": "MIT",
   "dependencies": {
