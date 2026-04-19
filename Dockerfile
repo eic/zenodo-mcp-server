@@ -6,7 +6,7 @@ FROM node:25-slim AS builder
 WORKDIR /app
 
 COPY package*.json tsconfig.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY src/ ./src/
 RUN npm run build
